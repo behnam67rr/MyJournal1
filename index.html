@@ -1,0 +1,2308 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ذهن تریدر | ژورنال معاملاتی و مدیریت روان (MT5 Auto-Sync)</title>
+    <meta name="theme-color" content="#090d16">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="اپلیکیشن ژورنال‌نویسی معاملاتی با اتصال خودکار به متاتریدر ۵ و گوگل شیت همراه با مدیریت روانشناسی ترید">
+
+    <!-- Manifest داخلی PWA -->
+    <link rel="manifest" id="pwa-manifest">
+
+    <!-- فونت وزیرمتن (Vazirmatn) از Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- آیکون‌های Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- کتابخانه Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- کتابخانه Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Vazirmatn', 'sans-serif'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#151e32',
+                            950: '#090d16',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.4);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.7);
+        }
+
+        /* انیمیشن تنفس جعبه‌ای */
+        .breath-circle {
+            transition: transform 4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 1s ease;
+        }
+        .breath-inhale {
+            transform: scale(1.45);
+            box-shadow: 0 0 45px rgba(16, 185, 129, 0.55);
+        }
+        .breath-hold-in {
+            transform: scale(1.45);
+            box-shadow: 0 0 55px rgba(59, 130, 246, 0.6);
+        }
+        .breath-exhale {
+            transform: scale(0.95);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+        }
+        .breath-hold-out {
+            transform: scale(0.95);
+            box-shadow: 0 0 15px rgba(148, 163, 184, 0.2);
+        }
+
+        /* اسلایدرها */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #10b981;
+            cursor: pointer;
+            margin-top: -7px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(148, 163, 184, 0.25);
+            border-radius: 999px;
+        }
+
+        .glass-card {
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin-fast {
+            animation: spin-slow 0.8s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300 min-h-screen flex flex-col">
+
+    <!-- سیستم نمایش اعلان (Toast Notification) -->
+    <div id="toast-container" class="fixed top-4 left-4 right-4 md:left-auto md:right-6 md:w-96 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- مودال نصب PWA -->
+    <div id="install-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-2 text-emerald-500 font-bold text-lg">
+                    <i data-lucide="smartphone" class="w-6 h-6"></i>
+                    <span>نصب اپلیکیشن (PWA)</span>
+                </div>
+                <button onclick="closeModal('install-modal')" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-4">
+                برای استفاده تمام‌صفحه و دسترسی آفلاین، اپ «ذهن تریدر» را به صفحه اصلی گوشی یا دسکتاپ اضافه کنید:
+            </p>
+            <div class="space-y-3 text-xs bg-slate-100 dark:bg-slate-800/70 p-4 rounded-2xl mb-5">
+                <div class="flex items-start gap-2.5">
+                    <span class="bg-emerald-500/20 text-emerald-500 font-bold px-2 py-0.5 rounded-md shrink-0">اندروید / کروم</span>
+                    <span class="text-slate-700 dark:text-slate-300 leading-5">منوی سه نقطه (⋮) بالای مرورگر را بزنید و <strong>Install App</strong> را انتخاب کنید.</span>
+                </div>
+                <div class="flex items-start gap-2.5 border-t border-slate-200 dark:border-slate-700 pt-2.5">
+                    <span class="bg-blue-500/20 text-blue-400 font-bold px-2 py-0.5 rounded-md shrink-0">آیفون / سافاری</span>
+                    <span class="text-slate-700 dark:text-slate-300 leading-5">دکمه Share پایین صفحه را بزنید و گزینه <strong>Add to Home Screen</strong> را انتخاب کنید.</span>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button id="native-install-btn" onclick="triggerNativeInstall()" class="hidden flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>نصب مستقیم</span>
+                </button>
+                <button onclick="closeModal('install-modal')" class="flex-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 font-semibold py-2.5 px-4 rounded-xl transition">
+                    بستن
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- مودال تکمیل و ویرایش روانشناسی معامله (مخصوص معاملات ایمپورت شده از MT5 یا ویرایش دستی) -->
+    <div id="edit-psych-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-200 dark:border-slate-800">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-2xl bg-purple-500/15 text-purple-500 flex items-center justify-center">
+                        <i data-lucide="brain" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base">تکمیل روانشناسی و ستاپ معامله</h3>
+                        <p id="edit-modal-subtitle" class="text-xs text-slate-500">اطلاعات مالی از متاتریدر دریافت شده؛ وضعیت ذهنی خود را ثبت کنید</p>
+                    </div>
+                </div>
+                <button onclick="closeModal('edit-psych-modal')" class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="edit-psych-form" onsubmit="saveEditedPsychology(event)" class="space-y-4">
+                <input type="hidden" id="edit-trade-id">
+
+                <!-- خلاصه معامله غیرقابل تغییر یا قابل اصلاح جزئی -->
+                <div id="edit-trade-summary" class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 flex items-center justify-between"></div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">ستاپ / استراتژی معاملاتی</label>
+                        <input type="text" id="edit-setup" list="setups-list" required
+                            class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs focus:border-purple-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold mb-1">تایم‌فریم ورود</label>
+                        <select id="edit-timeframe" class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs font-bold dir-ltr">
+                            <option value="M1">M1</option>
+                            <option value="M5">M5</option>
+                            <option value="M15">M15</option>
+                            <option value="H1">H1</option>
+                            <option value="H4">H4</option>
+                            <option value="D1">D1</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold mb-2">حالت روانی غالب شما هنگام این معامله چه بود؟</label>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="edit-emotion" value="آرام و منطقی" data-score="95" class="peer hidden">
+                            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:bg-emerald-500/15 peer-checked:border-emerald-500 peer-checked:text-emerald-500 text-xs font-bold flex items-center gap-1.5">
+                                <span>🧘‍♂️</span><span>آرام و منطقی</span>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="edit-emotion" value="پایبند به پلن" data-score="90" class="peer hidden">
+                            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:bg-teal-500/15 peer-checked:border-teal-500 peer-checked:text-teal-500 text-xs font-bold flex items-center gap-1.5">
+                                <span>🎯</span><span>پایبند به پلن</span>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="edit-emotion" value="ترس از جاماندن (FOMO)" data-score="40" class="peer hidden">
+                            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:bg-amber-500/15 peer-checked:border-amber-500 peer-checked:text-amber-500 text-xs font-bold flex items-center gap-1.5">
+                                <span>😰</span><span>FOMO / ترس</span>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="edit-emotion" value="طمع و جابجایی هدف" data-score="45" class="peer hidden">
+                            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:bg-orange-500/15 peer-checked:border-orange-500 peer-checked:text-orange-500 text-xs font-bold flex items-center gap-1.5">
+                                <span>🤑</span><span>طمع / جابجایی</span>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="edit-emotion" value="خستگی و عجله" data-score="50" class="peer hidden">
+                            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:bg-yellow-500/15 peer-checked:border-yellow-500 peer-checked:text-yellow-500 text-xs font-bold flex items-center gap-1.5">
+                                <span>⚡</span><span>خستگی / عجله</span>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="edit-emotion" value="معامله انتقامی (Revenge)" data-score="20" class="peer hidden">
+                            <div class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:bg-rose-500/15 peer-checked:border-rose-500 peer-checked:text-rose-500 text-xs font-bold flex items-center gap-1.5">
+                                <span>😡</span><span>انتقامی (Revenge)</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 cursor-pointer text-xs">
+                        <input type="checkbox" id="edit-rule-sl" class="w-4 h-4 accent-emerald-500">
+                        <span>حد ضرر زیر اسپایک رعایت و جابجا نشد</span>
+                    </label>
+                    <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 cursor-pointer text-xs">
+                        <input type="checkbox" id="edit-rule-ema" class="w-4 h-4 accent-emerald-500">
+                        <span>تایید روند EMA 60 وجود داشت</span>
+                    </label>
+                    <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 cursor-pointer text-xs">
+                        <input type="checkbox" id="edit-rule-risk" class="w-4 h-4 accent-emerald-500">
+                        <span>حجم (Lots) طبق ریسک مجاز بود</span>
+                    </label>
+                    <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 cursor-pointer text-xs">
+                        <input type="checkbox" id="edit-rule-confirm" class="w-4 h-4 accent-emerald-500">
+                        <span>ورود بدون عجله و با تایید کندل</span>
+                    </label>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold mb-1">یادداشت و درس‌آموخته</label>
+                    <textarea id="edit-notes" rows="3" placeholder="توضیحات خود را درباره دلیل ورود، مدیریت پوزیشن و احساسات بنویسید..."
+                        class="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs leading-relaxed focus:border-purple-500 focus:outline-none"></textarea>
+                </div>
+
+                <div class="flex gap-2 pt-2">
+                    <button type="submit" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl text-xs transition">
+                        ذخیره و تکمیل ژورنال
+                    </button>
+                    <button type="button" onclick="closeModal('edit-psych-modal')" class="px-5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 font-bold py-3 rounded-xl text-xs transition">
+                        انصراف
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- مودال تایید پاکسازی داده‌ها -->
+    <div id="confirm-reset-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl">
+            <div class="w-12 h-12 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center mb-4">
+                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+            </div>
+            <h3 class="font-bold text-lg mb-2">پاک کردن تمام معاملات؟</h3>
+            <p class="text-sm text-slate-600 dark:text-slate-400 mb-6 leading-relaxed">
+                تمام معاملات ذخیره شده در حافظه مرورگر حذف خواهند شد. (در صورت اتصال به گوگل شیت، می‌توانید دوباره آن‌ها را Sync کنید).
+            </p>
+            <div class="flex gap-3">
+                <button onclick="clearAllData()" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-semibold py-2.5 rounded-xl transition">
+                    بله، پاک شود
+                </button>
+                <button onclick="closeModal('confirm-reset-modal')" class="flex-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 font-semibold py-2.5 rounded-xl transition">
+                    انصراف
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- هدر اصلی اپلیکیشن -->
+    <header class="sticky top-0 z-30 bg-white/85 dark:bg-slate-950/85 glass-card border-b border-slate-200 dark:border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2">
+            <!-- لوگو -->
+            <div class="flex items-center gap-2.5 shrink-0">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                    <i data-lucide="brain-circuit" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-1.5">
+                        <h1 class="font-extrabold text-base sm:text-lg tracking-tight bg-gradient-to-l from-emerald-500 to-teal-400 bg-clip-text text-transparent">
+                            ذهن تریدر
+                        </h1>
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500/15 text-blue-400 border border-blue-500/20">MT5 Sync</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">ژورنال هوشمند متصل به متاتریدر ۵ و گوگل شیت</p>
+                </div>
+            </div>
+
+            <!-- ناوبری دسکتاپ -->
+            <nav class="hidden lg:flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+                <button onclick="switchTab('dashboard')" data-tab="dashboard" class="nav-btn active px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                    <span>داشبورد</span>
+                </button>
+                <button onclick="switchTab('sync')" data-tab="sync" class="nav-btn px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    <span>اتصال خودکار MT5</span>
+                </button>
+                <button onclick="switchTab('logger')" data-tab="logger" class="nav-btn px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <span>ثبت دستی</span>
+                </button>
+                <button onclick="switchTab('history')" data-tab="history" class="nav-btn px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white relative">
+                    <i data-lucide="history" class="w-4 h-4"></i>
+                    <span>تاریخچه ژورنال</span>
+                    <span id="nav-pending-badge" class="hidden px-1.5 py-0.2 bg-amber-500 text-slate-950 text-[10px] font-black rounded-full">0</span>
+                </button>
+                <button onclick="switchTab('toolkit')" data-tab="toolkit" class="nav-btn px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                    <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                    <span>کنترل بحران</span>
+                </button>
+            </nav>
+
+            <!-- دکمه‌های سریع هدر -->
+            <div class="flex items-center gap-2">
+                <!-- دکمه همگام‌سازی سریع از گوگل شیت -->
+                <button onclick="syncFromGoogleSheet(false)" id="header-sync-btn" title="دریافت معاملات جدید از گوگل شیت / متاتریدر ۵" class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition flex items-center gap-1.5 text-xs font-bold shadow-md shadow-blue-500/20">
+                    <i id="header-sync-icon" data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">همگام‌سازی</span>
+                </button>
+
+                <button onclick="openModal('install-modal')" title="نصب اپلیکیشن PWA" class="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition flex items-center gap-1 text-xs font-bold">
+                    <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                    <span class="hidden xl:inline">نصب اپ</span>
+                </button>
+
+                <button onclick="toggleTheme()" title="تغییر تم" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 transition text-slate-600 dark:text-slate-300">
+                    <i id="theme-icon" data-lucide="sun" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- نوار هشدار معاملات نیازمند تکمیل روانشناسی -->
+    <div id="pending-psych-banner" class="hidden bg-amber-500/15 border-b border-amber-500/30 px-4 py-2.5">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-semibold">
+                <i data-lucide="sparkles" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span id="pending-banner-text">شما معاملات جدیدی دارید که به صورت خودکار دریافت شده‌اند و نیاز به تکمیل وضعیت روانشناسی دارند.</span>
+            </div>
+            <button onclick="filterPendingTrades()" class="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold transition">
+                مشاهده و تکمیل سریع
+            </button>
+        </div>
+    </div>
+
+    <!-- محتوای اصلی -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-10">
+
+        <!-- ==================== بخش ۱: داشبورد و تحلیل روانشناختی ==================== -->
+        <section id="tab-dashboard" class="tab-content space-y-6">
+
+            <!-- کارت‌های آماری کلیدی (KPI) -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-2.5">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">سود / زیان خالص ($)</span>
+                        <div class="w-9 h-9 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                            <i data-lucide="dollar-sign" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div id="stat-net-pnl" class="text-xl sm:text-2xl font-black tracking-tight dir-ltr text-right">+$0.00</div>
+                    <div id="stat-trade-count" class="text-[11px] text-slate-500 mt-1">بر اساس ۰ معامله</div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-2.5">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">نرخ برد (Win Rate)</span>
+                        <div class="w-9 h-9 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                            <i data-lucide="target" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div id="stat-win-rate" class="text-xl sm:text-2xl font-black tracking-tight">0%</div>
+                    <div id="stat-wl-ratio" class="text-[11px] text-slate-500 mt-1">۰ برد / ۰ باخت</div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-2.5">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">فاکتور سود (Profit Factor)</span>
+                        <div class="w-9 h-9 rounded-2xl bg-teal-500/10 text-teal-500 flex items-center justify-center">
+                            <i data-lucide="scale" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div id="stat-profit-factor" class="text-xl sm:text-2xl font-black tracking-tight dir-ltr text-right">0.00</div>
+                    <div class="text-[11px] text-slate-500 mt-1">نسبت مجموع سود به مجموع زیان</div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-2.5">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">معاملات بدون خطای روانی</span>
+                        <div class="w-9 h-9 rounded-2xl bg-purple-500/10 text-purple-500 flex items-center justify-center">
+                            <i data-lucide="brain" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div id="stat-calm-ratio" class="text-xl sm:text-2xl font-black tracking-tight">0%</div>
+                    <div id="stat-avg-mindset" class="text-[11px] text-slate-500 mt-1">میانگین امتیاز روان: ۰/۱۰۰</div>
+                </div>
+            </div>
+
+            <!-- ردیف دوم: سنجش آمادگی روزانه پیش از ترید + نمودار همبستگی -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- سنجش وضعیت ذهنی قبل از ترید (امتیاز ۱ تا ۵) -->
+                <div class="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center gap-2.5 mb-4">
+                            <div class="w-9 h-9 rounded-2xl bg-teal-500/10 text-teal-500 flex items-center justify-center">
+                                <i data-lucide="activity" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h2 class="font-bold text-base">سنجش آمادگی ذهنی قبل از ترید</h2>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">امتیازدهی ۱ تا ۵ برای محاسبه شاخص آمادگی ورود به بازار</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3.5 mt-4">
+                            <div>
+                                <div class="flex justify-between text-xs font-semibold mb-1">
+                                    <span>کیفیت خواب و انرژی جسمی</span>
+                                    <span id="val-sleep" class="text-emerald-500 font-bold">4 / 5</span>
+                                </div>
+                                <input type="range" id="slider-sleep" min="1" max="5" value="4" oninput="updateMindsetScore()" class="w-full">
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-semibold mb-1">
+                                    <span>تمرکز ذهنی و آرامش محیط</span>
+                                    <span id="val-focus" class="text-emerald-500 font-bold">4 / 5</span>
+                                </div>
+                                <input type="range" id="slider-focus" min="1" max="5" value="4" oninput="updateMindsetScore()" class="w-full">
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-semibold mb-1">
+                                    <span>پایبندی و آمادگی اجرای پلن</span>
+                                    <span id="val-plan" class="text-emerald-500 font-bold">5 / 5</span>
+                                </div>
+                                <input type="range" id="slider-plan" min="1" max="5" value="5" oninput="updateMindsetScore()" class="w-full">
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-semibold mb-1">
+                                    <span>سطح استرس و تنش عصبی (کمتر = بهتر)</span>
+                                    <span id="val-stress" class="text-amber-500 font-bold">2 / 5</span>
+                                </div>
+                                <input type="range" id="slider-stress" min="1" max="5" value="2" oninput="updateMindsetScore()" class="w-full">
+                            </div>
+
+                            <div>
+                                <div class="flex justify-between text-xs font-semibold mb-1">
+                                    <span>وسوسه طمع / ترس از جاماندن (FOMO)</span>
+                                    <span id="val-fomo" class="text-amber-500 font-bold">1 / 5</span>
+                                </div>
+                                <input type="range" id="slider-fomo" min="1" max="5" value="1" oninput="updateMindsetScore()" class="w-full">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 pt-4 border-t border-slate-200 dark:border-slate-800">
+                        <div class="flex items-center justify-between mb-2.5">
+                            <span class="text-xs font-bold text-slate-500 dark:text-slate-400">شاخص آمادگی ترید امروز:</span>
+                            <div class="flex items-baseline gap-1">
+                                <span id="readiness-score" class="text-3xl font-black text-emerald-500">85</span>
+                                <span class="text-xs text-slate-400">/ 100</span>
+                            </div>
+                        </div>
+
+                        <div id="readiness-alert" class="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs leading-relaxed flex items-start gap-2">
+                            <i data-lucide="check-circle-2" class="w-5 h-5 shrink-0 text-emerald-500 mt-0.5"></i>
+                            <span id="readiness-message">آمادگی ذهنی ایده‌آل است. با ریسک استاندارد و رعایت کامل قوانین استراتژی وارد شوید.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- نمودار تعاملی Chart.js -->
+                <div class="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm flex flex-col">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                        <div>
+                            <h2 class="font-bold text-base flex items-center gap-2">
+                                <i data-lucide="trending-up" class="w-5 h-5 text-emerald-500"></i>
+                                <span>تحلیل عملکرد مالی و وضعیت روانی</span>
+                            </h2>
+                            <p id="chart-subtitle" class="text-xs text-slate-500 dark:text-slate-400">روند رشد سرمایه (Equity Curve) و امتیاز آرامش ذهن در هر معامله</p>
+                        </div>
+
+                        <!-- دکمه تغییر حالت نمودار -->
+                        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-850 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
+                            <button onclick="setChartMode('equity')" id="btn-chart-equity" class="px-2.5 py-1 rounded-lg font-bold bg-white dark:bg-slate-800 text-emerald-500 shadow-sm transition">
+                                رشد سرمایه و روان
+                            </button>
+                            <button onclick="setChartMode('emotion')" id="btn-chart-emotion" class="px-2.5 py-1 rounded-lg font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition">
+                                سود بر اساس احساس
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="relative flex-1 min-h-[270px] w-full">
+                        <canvas id="mainChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== بخش ۲: اتصال خودکار MT5 و ایمپورت فایل ==================== -->
+        <section id="tab-sync" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                <!-- کارت اول: اتصال به Google Apps Script / گوگل شیت -->
+                <div class="lg:col-span-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-5">
+                    <div class="flex items-center gap-3">
+                        <div class="w-11 h-11 rounded-2xl bg-blue-500/15 text-blue-500 flex items-center justify-center">
+                            <i data-lucide="cloud-lightning" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-extrabold text-base">اتصال خودکار به گوگل شیت (MT5 Webhook)</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">معاملاتی که اکسپرت متاتریدر ۵ به شیت ارسال می‌کند، به صورت خودکار وارد ژورنال می‌شوند.</p>
+                        </div>
+                    </div>
+
+                    <!-- فرم ذخیره لینک وب‌اپ گوگل -->
+                    <div class="space-y-3">
+                        <label class="block text-xs font-bold">لینک وب‌اپ Google Apps Script (Web App URL):</label>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <input type="url" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec"
+                                class="flex-1 px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs font-mono dir-ltr text-left focus:border-blue-500 focus:outline-none">
+                            <button onclick="saveGasSettings()" class="px-5 py-3 rounded-xl bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold text-xs transition shrink-0">
+                                ذخیره لینک
+                            </button>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                            <label class="flex items-center gap-2.5 cursor-pointer text-xs font-semibold">
+                                <input type="checkbox" id="auto-sync-checkbox" onchange="saveGasSettings()" class="w-4 h-4 accent-blue-500 rounded">
+                                <span>همگام‌سازی خودکار هنگام باز کردن اپلیکیشن (Auto-Sync on Load)</span>
+                            </label>
+
+                            <span id="last-sync-time" class="text-[11px] text-slate-400">آخرین همگام‌سازی: هنوز انجام نشده</span>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 flex flex-wrap gap-3">
+                        <button onclick="syncFromGoogleSheet(false)" id="panel-sync-btn" class="flex-1 py-3 px-5 rounded-2xl bg-gradient-to-l from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400 text-white font-bold text-xs shadow-lg shadow-blue-500/20 transition flex items-center justify-center gap-2">
+                            <i id="panel-sync-icon" data-lucide="refresh-cw" class="w-4 h-4"></i>
+                            <span>دریافت و همگام‌سازی معاملات جدید از گوگل شیت</span>
+                        </button>
+                    </div>
+
+                    <!-- راهنمای کشویی کد doGet برای گوگل اپس اسکریپت -->
+                    <details class="group bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+                        <summary class="cursor-pointer text-xs font-bold text-blue-500 flex items-center justify-between select-none">
+                            <span class="flex items-center gap-1.5">
+                                <i data-lucide="code-2" class="w-4 h-4"></i>
+                                <span>راهنمای فعال‌سازی خروجی JSON در Google Apps Script (کد doGet)</span>
+                            </span>
+                            <span class="group-open:rotate-180 transition-transform">▼</span>
+                        </summary>
+                        <div class="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                            <p class="leading-relaxed">
+                                مطمئن شوید شیت شما دارای تب <strong>Journal</strong> و ستون‌های <code>Date, Symbol, Status, ExitPrice, ProfitUSD, Lots, Risk</code> است. سپس تابع زیر را در پروژه Apps Script خود قرار دهید و یک <strong>New Deployment</strong> با دسترسی <strong>Anyone</strong> بسازید:
+                            </p>
+                            <div class="relative">
+                                <pre id="gas-code-snippet" class="p-3 rounded-xl bg-slate-950 text-emerald-400 font-mono text-[11px] overflow-x-auto dir-ltr text-left leading-relaxed">function doGet(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Journal");
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var trades = [];
+  for (var i = 1; i &lt; data.length; i++) {
+    var row = {};
+    for (var j = 0; j &lt; headers.length; j++) {
+      row[headers[j]] = data[i][j];
+    }
+    trades.push(row);
+  }
+  return ContentService.createTextOutput(JSON.stringify({
+    status: "success",
+    trades: trades
+  })).setMimeType(ContentService.MimeType.JSON);
+}</pre>
+                                <button onclick="copyGasCode()" class="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold flex items-center gap-1">
+                                    <i data-lucide="copy" class="w-3 h-3"></i>
+                                    <span>کپی کد</span>
+                                </button>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- کارت دوم: ایمپورت آفلاین فایل گزارش متاتریدر ۵ (HTML / CSV) -->
+                <div class="lg:col-span-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-5">
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-11 h-11 rounded-2xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
+                                <i data-lucide="file-up" class="w-6 h-6"></i>
+                            </div>
+                            <div>
+                                <h2 class="font-extrabold text-base">ایمپورت فایل گزارش MT5 (آفلاین)</h2>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">پارس خودکار فایل ReportHistory.html یا CSV خروجی متاتریدر ۵</p>
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                            در متاتریدر ۵ به تب <strong>History</strong> بروید، کلیک راست کرده و گزینه <strong>Report -> HTML (Open XML / HTML)</strong> را انتخاب کنید. فایل ذخیره‌شده را اینجا بارگذاری کنید تا معاملات بسته شده به صورت خودکار استخراج شوند:
+                        </p>
+
+                        <label class="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 rounded-2xl p-6 cursor-pointer bg-slate-50/50 dark:bg-slate-850/50 transition text-center">
+                            <i data-lucide="upload-cloud" class="w-9 h-9 text-emerald-500 mb-2"></i>
+                            <span class="text-xs font-bold mb-1">انتخاب فایل گزارش MT5 (.html, .htm, .csv)</span>
+                            <span class="text-[11px] text-slate-400">تشخیص هوشمند معاملات تکراری به صورت خودکار انجام می‌شود</span>
+                            <input type="file" accept=".html,.htm,.csv" onchange="handleMT5FileUpload(event)" class="hidden">
+                        </label>
+                    </div>
+
+                    <!-- پشتیبان‌گیری و خروجی -->
+                    <div class="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
+                        <div class="text-xs font-bold text-slate-500">مدیریت فایل‌های پشتیبان ژورنال:</div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="exportData('csv')" class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-500"></i>
+                                <span>خروجی اکسل (CSV)</span>
+                            </button>
+                            <button onclick="exportData('json')" class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5">
+                                <i data-lucide="download" class="w-4 h-4 text-blue-500"></i>
+                                <span>بکاپ JSON</span>
+                            </button>
+                            <label class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer">
+                                <i data-lucide="upload" class="w-4 h-4 text-amber-500"></i>
+                                <span>بازیابی JSON</span>
+                                <input type="file" accept=".json" onchange="importJsonBackup(event)" class="hidden">
+                            </label>
+                            <button onclick="openModal('confirm-reset-modal')" class="py-2.5 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-xs font-bold transition flex items-center justify-center gap-1.5">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                <span>پاکسازی داده‌ها</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== بخش ۳: ثبت دستی ژورنال معاملاتی ==================== -->
+        <section id="tab-logger" class="tab-content hidden">
+            <div class="max-w-4xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-8 shadow-sm">
+                <div class="flex items-center gap-3 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800">
+                    <div class="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
+                        <i data-lucide="pen-tool" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-extrabold text-lg">ثبت دستی معامله و تحلیل روانشناختی</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">جزئیات تکنیکال و احساسات خود را ثبت کنید</p>
+                    </div>
+                </div>
+
+                <form id="trade-form" onsubmit="saveManualTrade(event)" class="space-y-6">
+                    <div>
+                        <h3 class="text-xs font-bold text-emerald-500 mb-3 flex items-center gap-1.5">
+                            <i data-lucide="candlestick-chart" class="w-4 h-4"></i>
+                            <span>۱. اطلاعات تکنیکال و مالی</span>
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold mb-1.5">نماد معاملاتی (Symbol)</label>
+                                <input type="text" id="trade-symbol" list="symbols-list" required value="XAUUSD"
+                                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 focus:border-emerald-500 focus:outline-none text-sm font-bold uppercase dir-ltr text-left">
+                                <datalist id="symbols-list">
+                                    <option value="XAUUSD">طلای جهانی (Gold)</option>
+                                    <option value="XAUUSD_o">طلای جهانی (Gold _o)</option>
+                                    <option value="BTCUSD">بیت‌کوین (Bitcoin)</option>
+                                    <option value="EURUSD">یورو / دلار</option>
+                                    <option value="GBPUSD">پوند / دلار</option>
+                                    <option value="US30">داوجونز</option>
+                                    <option value="NAS100">نزدک</option>
+                                </datalist>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold mb-1.5">تایم‌فریم ورود</label>
+                                <select id="trade-timeframe" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 focus:border-emerald-500 focus:outline-none text-sm font-semibold dir-ltr">
+                                    <option value="M1">M1</option>
+                                    <option value="M5">M5</option>
+                                    <option value="M15" selected>M15</option>
+                                    <option value="H1">H1</option>
+                                    <option value="H4">H4</option>
+                                    <option value="D1">D1</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold mb-1.5">جهت پوزیشن</label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="trade-direction" value="Buy" checked class="peer hidden">
+                                        <div class="py-2.5 text-center rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:bg-emerald-500/15 peer-checked:border-emerald-500 peer-checked:text-emerald-500 font-bold text-sm transition">
+                                            خرید (Buy)
+                                        </div>
+                                    </label>
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="trade-direction" value="Sell" class="peer hidden">
+                                        <div class="py-2.5 text-center rounded-xl border border-slate-200 dark:border-slate-700 peer-checked:bg-rose-500/15 peer-checked:border-rose-500 peer-checked:text-rose-500 font-bold text-sm transition">
+                                            فروش (Sell)
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold mb-1.5">حجم معامله (Lots)</label>
+                                <input type="number" id="trade-lots" step="0.01" min="0.01" value="0.10" required
+                                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 focus:border-emerald-500 focus:outline-none text-sm font-bold dir-ltr text-left">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold mb-1.5">درصد ریسک (%)</label>
+                                <input type="number" id="trade-risk" step="0.1" min="0.1" max="100" value="1.0" required
+                                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 focus:border-emerald-500 focus:outline-none text-sm font-bold dir-ltr text-left">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold mb-1.5">ستاپ معاملاتی</label>
+                                <input type="text" id="trade-setup" list="setups-list" required value="اسپایک پرایس اکشن + EMA 60"
+                                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 focus:border-emerald-500 focus:outline-none text-sm">
+                                <datalist id="setups-list">
+                                    <option value="اسپایک پرایس اکشن + EMA 60">
+                                    <option value="شکست خط روند و پولبک">
+                                    <option value="ایچیموکو (کراس تنکنسن و کیجونسن)">
+                                    <option value="نقدینگی و اردر بلاک (ICT)">
+                                    <option value="واگرایی در ناحیه حمایت/مقاومت">
+                                </datalist>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold mb-1.5">نتیجه نهایی</label>
+                                <select id="trade-outcome" onchange="autoSignPnl()" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 focus:border-emerald-500 focus:outline-none text-sm font-bold">
+                                    <option value="Win">سود (Win)</option>
+                                    <option value="Loss">زیان (Loss)</option>
+                                    <option value="Break-Even">سر به سر (BE)</option>
+                                </select>
+                            </div>
+
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-semibold mb-1.5">سود / زیان خالص ($ دلار)</label>
+                                <input type="number" id="trade-pnl" step="0.01" required placeholder="مثلاً 125.50 یا -60.00"
+                                    class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 focus:border-emerald-500 focus:outline-none text-base font-black dir-ltr text-left">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-200 dark:border-slate-800">
+                        <h3 class="text-xs font-bold text-purple-500 mb-3 flex items-center gap-1.5">
+                            <i data-lucide="heart-pulse" class="w-4 h-4"></i>
+                            <span>۲. وضعیت روانشناختی و انضباط معاملاتی</span>
+                        </h3>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trade-emotion" value="آرام و منطقی" data-score="95" checked class="peer hidden">
+                                <div class="p-3 rounded-2xl border border-slate-200 dark:border-slate-700 peer-checked:bg-emerald-500/15 peer-checked:border-emerald-500 peer-checked:text-emerald-500 transition flex items-center gap-2 text-xs font-bold">
+                                    <span>🧘‍♂️</span><span>آرام و منطقی</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trade-emotion" value="پایبند به پلن" data-score="90" class="peer hidden">
+                                <div class="p-3 rounded-2xl border border-slate-200 dark:border-slate-700 peer-checked:bg-teal-500/15 peer-checked:border-teal-500 peer-checked:text-teal-500 transition flex items-center gap-2 text-xs font-bold">
+                                    <span>🎯</span><span>پایبند به پلن</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trade-emotion" value="ترس از جاماندن (FOMO)" data-score="40" class="peer hidden">
+                                <div class="p-3 rounded-2xl border border-slate-200 dark:border-slate-700 peer-checked:bg-amber-500/15 peer-checked:border-amber-500 peer-checked:text-amber-500 transition flex items-center gap-2 text-xs font-bold">
+                                    <span>😰</span><span>FOMO / ترس</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trade-emotion" value="طمع و جابجایی هدف" data-score="45" class="peer hidden">
+                                <div class="p-3 rounded-2xl border border-slate-200 dark:border-slate-700 peer-checked:bg-orange-500/15 peer-checked:border-orange-500 peer-checked:text-orange-500 transition flex items-center gap-2 text-xs font-bold">
+                                    <span>🤑</span><span>طمع / جابجایی</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trade-emotion" value="خستگی و عجله" data-score="50" class="peer hidden">
+                                <div class="p-3 rounded-2xl border border-slate-200 dark:border-slate-700 peer-checked:bg-yellow-500/15 peer-checked:border-yellow-500 peer-checked:text-yellow-500 transition flex items-center gap-2 text-xs font-bold">
+                                    <span>⚡</span><span>خستگی / عجله</span>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trade-emotion" value="معامله انتقامی (Revenge)" data-score="20" class="peer hidden">
+                                <div class="p-3 rounded-2xl border border-slate-200 dark:border-slate-700 peer-checked:bg-rose-500/15 peer-checked:border-rose-500 peer-checked:text-rose-500 transition flex items-center gap-2 text-xs font-bold">
+                                    <span>😡</span><span>انتقامی (Revenge)</span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+                            <label class="flex items-center gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 cursor-pointer text-xs font-medium">
+                                <input type="checkbox" id="rule-sl" checked class="w-4 h-4 accent-emerald-500 rounded">
+                                <span>حد ضرر زیر اسپایک رعایت و جابجا نشد</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 cursor-pointer text-xs font-medium">
+                                <input type="checkbox" id="rule-ema" checked class="w-4 h-4 accent-emerald-500 rounded">
+                                <span>تایید روند EMA 60 وجود داشت</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 cursor-pointer text-xs font-medium">
+                                <input type="checkbox" id="rule-risk" checked class="w-4 h-4 accent-emerald-500 rounded">
+                                <span>حجم بر اساس درصد ریسک مجاز بود</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 cursor-pointer text-xs font-medium">
+                                <input type="checkbox" id="rule-confirm" checked class="w-4 h-4 accent-emerald-500 rounded">
+                                <span>ورود بدون عجله و با تایید کندل</span>
+                            </label>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold mb-1.5">یادداشت و درس‌آموخته</label>
+                            <textarea id="trade-notes" rows="3" placeholder="توضیحات خود را درباره این معامله بنویسید..."
+                                class="w-full p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 focus:border-emerald-500 focus:outline-none text-sm leading-relaxed"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit" class="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-l from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold text-sm shadow-lg shadow-emerald-500/25 transition flex items-center justify-center gap-2">
+                            <i data-lucide="save" class="w-5 h-5"></i>
+                            <span>ثبت در ژورنال</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- ==================== بخش ۴: تاریخچه معاملات و تکمیل روانشناسی ==================== -->
+        <section id="tab-history" class="tab-content hidden space-y-5">
+            <!-- نوار فیلترهای سریع -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="history" class="w-5 h-5 text-emerald-500"></i>
+                        <h2 class="font-bold text-base">تاریخچه ژورنال معاملات</h2>
+                    </div>
+
+                    <input type="text" id="filter-symbol" onkeyup="renderTrades()" placeholder="جستجوی نماد (مثلاً XAUUSD یا BTC)..."
+                        class="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:border-emerald-500 w-full sm:w-64">
+                </div>
+
+                <!-- دکمه‌های فیلتر سریع -->
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="setQuickFilter('ALL')" data-qfilter="ALL" class="qfilter-btn active px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-white transition">
+                        همه معاملات
+                    </button>
+                    <button onclick="setQuickFilter('PENDING')" data-qfilter="PENDING" class="qfilter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-850 text-amber-500 border border-amber-500/30 transition flex items-center gap-1.5">
+                        <span>⏳ نیاز به تکمیل روانشناسی</span>
+                        <span id="filter-pending-count" class="px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black">0</span>
+                    </button>
+                    <button onclick="setQuickFilter('WIN')" data-qfilter="WIN" class="qfilter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-850 text-slate-600 dark:text-slate-300 transition">
+                        ✅ معاملات سودده
+                    </button>
+                    <button onclick="setQuickFilter('LOSS')" data-qfilter="LOSS" class="qfilter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-850 text-slate-600 dark:text-slate-300 transition">
+                        ❌ معاملات زیان‌ده
+                    </button>
+                    <button onclick="setQuickFilter('ERROR')" data-qfilter="ERROR" class="qfilter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-850 text-rose-500 transition">
+                        ⚠️ دارای خطای روانی (FOMO/انتقامی)
+                    </button>
+                </div>
+            </div>
+
+            <div id="trades-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        </section>
+
+        <!-- ==================== بخش ۵: ابزارهای کنترل بحران و انضباط ==================== -->
+        <section id="tab-toolkit" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                <!-- تمرین تنفس جعبه‌ای -->
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col items-center justify-between text-center">
+                    <div class="w-full flex items-center gap-2.5 mb-2 text-right">
+                        <div class="w-9 h-9 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                            <i data-lucide="wind" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-base">تمرین تنفس جعبه‌ای (Box Breathing 4-4-4-4)</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">کاهش فوری آدرنالین و استرس پس از استاپ خوردن</p>
+                        </div>
+                    </div>
+
+                    <div class="my-12 relative flex items-center justify-center w-48 h-48">
+                        <div class="absolute inset-0 rounded-full border-2 border-dashed border-slate-200 dark:border-slate-800"></div>
+                        <div id="breath-circle" class="breath-circle w-32 h-32 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex flex-col items-center justify-center text-white shadow-xl">
+                            <span id="breath-phase" class="font-extrabold text-base">آماده؟</span>
+                            <span id="breath-timer" class="text-2xl font-black mt-0.5">4</span>
+                        </div>
+                    </div>
+
+                    <div class="w-full space-y-3">
+                        <p id="breath-instruction" class="text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-850 py-2.5 px-4 rounded-xl">
+                            دکمه شروع را بزنید و همگام با انبساط و انقباض دایره نفس بکشید.
+                        </p>
+                        <button id="breath-toggle-btn" onclick="toggleBreathing()" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition inline-flex items-center gap-2">
+                            <i data-lucide="play" class="w-4 h-4"></i>
+                            <span>شروع تمرین آرام‌سازی</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- قفل ضد معامله انتقامی -->
+                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center gap-2.5 mb-4">
+                            <div class="w-9 h-9 rounded-2xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
+                                <i data-lucide="lock" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h2 class="font-bold text-base">قفل ضد معامله انتقامی (Tilt Lock)</h2>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">دوری اجباری از چارت پس از ضرر یا هیجان شدید</p>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center my-4">
+                            <div class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">زمان باقی‌مانده تا اجازه بازگشت به چارت:</div>
+                            <div id="cooldown-display" class="text-5xl font-black tracking-wider text-slate-800 dark:text-white dir-ltr font-mono">
+                                15:00
+                            </div>
+                            <div id="cooldown-status" class="mt-3 text-xs font-medium text-emerald-500">
+                                قفل غیرفعال است. در صورت احساس خشم یا عجله، تایمر را فعال کنید.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="startCooldown(15)" class="py-2.5 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 font-bold text-xs transition">
+                            ۱۵ دقیقه استراحت
+                        </button>
+                        <button onclick="startCooldown(30)" class="py-2.5 px-3 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 font-bold text-xs transition">
+                            ۳۰ دقیقه قفل کامل
+                        </button>
+                        <button onclick="stopCooldown()" class="py-2.5 px-3 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 font-bold text-xs transition">
+                            توقف تایمر
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- چک‌لیست قوانین طلایی تریدر -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                            <i data-lucide="list-checks" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-base">چک‌لیست قوانین طلایی قبل از ورود به معامله</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">قبل از باز کردن هر پوزیشن، تمام این موارد را تایید کنید</p>
+                        </div>
+                    </div>
+                    <button onclick="resetPersonalChecklist()" class="text-xs font-semibold text-blue-500 hover:underline flex items-center gap-1">
+                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                        <span>بازنشانی تیک‌ها</span>
+                    </button>
+                </div>
+
+                <form onsubmit="addPersonalRule(event)" class="flex gap-2 mb-5">
+                    <input type="text" id="new-rule-input" placeholder="قانون شخصی جدید خود را بنویسید..."
+                        class="flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus:border-blue-500">
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition shrink-0">
+                        افزودن قانون
+                    </button>
+                </form>
+
+                <div id="personal-rules-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- نوار ناوبری پایین موبایل -->
+    <nav class="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-950/95 glass-card border-t border-slate-200 dark:border-slate-800 px-1 py-1.5 flex justify-around items-center">
+        <button onclick="switchTab('dashboard')" data-tab="dashboard" class="mobile-nav-btn active flex flex-col items-center gap-1 p-1.5 rounded-xl text-emerald-500">
+            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold">داشبورد</span>
+        </button>
+        <button onclick="switchTab('sync')" data-tab="sync" class="mobile-nav-btn flex flex-col items-center gap-1 p-1.5 rounded-xl text-slate-500 dark:text-slate-400">
+            <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold">اتصال MT5</span>
+        </button>
+        <button onclick="switchTab('logger')" data-tab="logger" class="mobile-nav-btn flex flex-col items-center gap-1 p-1.5 rounded-xl text-slate-500 dark:text-slate-400">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold">ثبت دستی</span>
+        </button>
+        <button onclick="switchTab('history')" data-tab="history" class="mobile-nav-btn flex flex-col items-center gap-1 p-1.5 rounded-xl text-slate-500 dark:text-slate-400 relative">
+            <i data-lucide="history" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold">تاریخچه</span>
+            <span id="mobile-pending-dot" class="hidden absolute top-1 right-2 w-2 h-2 rounded-full bg-amber-500"></span>
+        </button>
+        <button onclick="switchTab('toolkit')" data-tab="toolkit" class="mobile-nav-btn flex flex-col items-center gap-1 p-1.5 rounded-xl text-slate-500 dark:text-slate-400">
+            <i data-lucide="shield-alert" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold">کنترل روان</span>
+        </button>
+    </nav>
+
+    <script>
+        // ==================== ۱. راه‌اندازی PWA (Manifest & Service Worker) ====================
+        (function initPWA() {
+            const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#090d16"/><path d="M256 112c-79.5 0-144 64.5-144 144s64.5 144 144 144 144-64.5 144-144S335.5 112 256 112zm0 240c-53 0-96-43-96-96s43-96 96-96 96 43 96 96-43 96-96 96z" fill="#10b981"/><circle cx="256" cy="256" r="48" fill="#34d399"/></svg>`;
+            const iconUrl = 'data:image/svg+xml;base64,' + btoa(svgIcon);
+
+            const manifest = {
+                name: "ذهن تریدر - ژورنال معاملاتی MT5 و مدیریت روان",
+                short_name: "ذهن تریدر",
+                description: "اپلیکیشن ژورنال‌نویسی متصل به متاتریدر ۵ و گوگل شیت همراه با مدیریت روانشناسی ترید",
+                start_url: location.href,
+                display: "standalone",
+                background_color: "#090d16",
+                theme_color: "#10b981",
+                dir: "rtl",
+                lang: "fa",
+                icons: [
+                    { src: iconUrl, sizes: "192x192", type: "image/svg+xml" },
+                    { src: iconUrl, sizes: "512x512", type: "image/svg+xml" }
+                ]
+            };
+
+            const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+            document.getElementById('pwa-manifest').setAttribute('href', URL.createObjectURL(manifestBlob));
+
+            if ('serviceWorker' in navigator) {
+                const swCode = `
+                    self.addEventListener('install', () => self.skipWaiting());
+                    self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
+                    self.addEventListener('fetch', (e) => {
+                        e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+                    });
+                `;
+                const swBlob = new Blob([swCode], { type: 'application/javascript' });
+                navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+            }
+        })();
+
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const installBtn = document.getElementById('native-install-btn');
+            if (installBtn) installBtn.classList.remove('hidden');
+        });
+
+        async function triggerNativeInstall() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') showToast('اپلیکیشن در حال نصب است!', 'success');
+            deferredPrompt = null;
+            closeModal('install-modal');
+        }
+
+        // ==================== ۲. مدیریت State و LocalStorage ====================
+        const STORAGE_KEYS = {
+            TRADES: 'tradermind_trades_v2',
+            RULES: 'tradermind_rules_v2',
+            THEME: 'tradermind_theme_v2',
+            GAS_URL: 'tradermind_gas_url_v2',
+            AUTO_SYNC: 'tradermind_autosync_v2',
+            LAST_SYNC: 'tradermind_lastsync_v2'
+        };
+
+        const DEMO_TRADES = [
+            {
+                id: 'demo-1',
+                fingerprint: 'demo-1',
+                source: 'Manual',
+                pendingPsychology: false,
+                date: '2026/11/18 10:30',
+                symbol: 'XAUUSD_o',
+                timeframe: 'M15',
+                direction: 'Buy',
+                lots: 0.15,
+                risk: 1.0,
+                setup: 'اسپایک پرایس اکشن + EMA 60',
+                outcome: 'Win',
+                pnl: 215.00,
+                emotion: 'آرام و منطقی',
+                mindsetScore: 95,
+                rules: { sl: true, ema: true, risk: true, confirm: true },
+                notes: 'روند صعودی بالای EMA 60 تایید شد و حد ضرر دقیقاً زیر منشأ اسپایک قرار گرفت.'
+            },
+            {
+                id: 'demo-2',
+                fingerprint: 'demo-2',
+                source: 'MT5 Sheet',
+                pendingPsychology: true,
+                date: '2026/11/19 15:45',
+                symbol: 'BTCUSD',
+                timeframe: 'M15',
+                direction: 'Sell',
+                lots: 0.20,
+                risk: 1.5,
+                setup: 'دریافت خودکار از MT5',
+                outcome: 'Loss',
+                pnl: -110.00,
+                emotion: 'نیاز به تکمیل',
+                mindsetScore: 60,
+                rules: { sl: true, ema: false, risk: true, confirm: false },
+                notes: 'این معامله به صورت خودکار از متاتریدر ۵ وارد شده است. روی دکمه «تکمیل روانشناسی» کلیک کنید.'
+            },
+            {
+                id: 'demo-3',
+                fingerprint: 'demo-3',
+                source: 'Manual',
+                pendingPsychology: false,
+                date: '2026/11/20 11:10',
+                symbol: 'XAUUSD_o',
+                timeframe: 'M5',
+                direction: 'Buy',
+                lots: 0.30,
+                risk: 2.5,
+                setup: 'اسپایک پرایس اکشن + EMA 60',
+                outcome: 'Loss',
+                pnl: -195.00,
+                emotion: 'ترس از جاماندن (FOMO)',
+                mindsetScore: 40,
+                rules: { sl: true, ema: false, risk: false, confirm: false },
+                notes: 'بدون صبر برای بسته شدن کندل و تایید EMA 60 وارد شدم.'
+            }
+        ];
+
+        const DEFAULT_RULES = [
+            { id: 'r1', text: 'تایید روند با میانگین متحرک EMA 60 الزامی است.', checked: false },
+            { id: 'r2', text: 'حد ضرر (SL) باید دقیقاً زیر منشأ اسپایک یا ناحیه معتبر باشد و جابجا نشود.', checked: false },
+            { id: 'r3', text: 'حداکثر ریسک در هر معامله ۱٪ سرمایه است.', checked: false },
+            { id: 'r4', text: 'در صورت ۲ استاپ متوالی یا رسیدن به حد ضرر روزانه، ترید متوقف می‌شود.', checked: false }
+        ];
+
+        let trades = [];
+        let personalRules = [];
+        let mainChart = null;
+        let currentQuickFilter = 'ALL';
+        let currentChartMode = 'equity';
+
+        function loadInitialData() {
+            const savedTrades = localStorage.getItem(STORAGE_KEYS.TRADES);
+            if (savedTrades !== null) {
+                trades = JSON.parse(savedTrades);
+            } else {
+                trades = [...DEMO_TRADES];
+                saveTradesToStorage();
+            }
+
+            const savedRules = localStorage.getItem(STORAGE_KEYS.RULES);
+            if (savedRules !== null) {
+                personalRules = JSON.parse(savedRules);
+            } else {
+                personalRules = [...DEFAULT_RULES];
+                saveRulesToStorage();
+            }
+
+            // تنظیمات اتصال گوگل شیت
+            const savedGasUrl = localStorage.getItem(STORAGE_KEYS.GAS_URL) || '';
+            const savedAutoSync = localStorage.getItem(STORAGE_KEYS.AUTO_SYNC) === 'true';
+            const lastSync = localStorage.getItem(STORAGE_KEYS.LAST_SYNC);
+
+            document.getElementById('gas-url-input').value = savedGasUrl;
+            document.getElementById('auto-sync-checkbox').checked = savedAutoSync;
+            if (lastSync) {
+                document.getElementById('last-sync-time').textContent = `آخرین همگام‌سازی: ${lastSync}`;
+            }
+
+            // تم تیره یا روشن
+            const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || 'dark';
+            if (savedTheme === 'light') {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('theme-icon').setAttribute('data-lucide', 'moon');
+            } else {
+                document.documentElement.classList.add('dark');
+                document.getElementById('theme-icon').setAttribute('data-lucide', 'sun');
+            }
+        }
+
+        function saveTradesToStorage() {
+            localStorage.setItem(STORAGE_KEYS.TRADES, JSON.stringify(trades));
+            updatePendingBadges();
+        }
+
+        function saveRulesToStorage() {
+            localStorage.setItem(STORAGE_KEYS.RULES, JSON.stringify(personalRules));
+        }
+
+        // ==================== ۳. اتصال خودکار به Google Apps Script و پارس فایل MT5 ====================
+        function saveGasSettings() {
+            const url = document.getElementById('gas-url-input').value.trim();
+            const autoSync = document.getElementById('auto-sync-checkbox').checked;
+            localStorage.setItem(STORAGE_KEYS.GAS_URL, url);
+            localStorage.setItem(STORAGE_KEYS.AUTO_SYNC, autoSync);
+            showToast('تنظیمات اتصال ذخیره شد.', 'success');
+        }
+
+        function copyGasCode() {
+            const code = document.getElementById('gas-code-snippet').innerText;
+            const temp = document.createElement('textarea');
+            temp.value = code;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            showToast('کد Google Apps Script کپی شد!', 'success');
+        }
+
+        // تولید اثر انگشت یکتا برای جلوگیری از ثبت تکراری معاملات
+        function createTradeFingerprint(dateStr, symbol, pnl, lots, ticket = '') {
+            if (ticket && String(ticket).trim() !== '') {
+                return `ticket_${String(ticket).trim()}`;
+            }
+            const cleanDate = String(dateStr || '').trim().slice(0, 16);
+            const cleanSym = String(symbol || '').trim().toUpperCase();
+            const cleanPnl = Number(pnl || 0).toFixed(2);
+            const cleanLots = Number(lots || 0).toFixed(2);
+            return `${cleanDate}_${cleanSym}_${cleanPnl}_${cleanLots}`;
+        }
+
+        async function syncFromGoogleSheet(isSilent = false) {
+            const url = localStorage.getItem(STORAGE_KEYS.GAS_URL) || document.getElementById('gas-url-input').value.trim();
+            if (!url) {
+                if (!isSilent) {
+                    showToast('ابتدا لینک وب‌اپ Google Apps Script را در تب «اتصال خودکار MT5» وارد کنید.', 'warning');
+                    switchTab('sync');
+                }
+                return;
+            }
+
+            const hIcon = document.getElementById('header-sync-icon');
+            const pIcon = document.getElementById('panel-sync-icon');
+            if (hIcon) hIcon.classList.add('animate-spin-fast');
+            if (pIcon) pIcon.classList.add('animate-spin-fast');
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('خطا در ارتباط با سرور گوگل');
+                const data = await response.json();
+
+                const rawRows = Array.isArray(data) ? data : (data.trades || data.data || []);
+                if (!Array.isArray(rawRows)) {
+                    throw new Error('ساختار داده‌های دریافتی معتبر نیست.');
+                }
+
+                const existingFingerprints = new Set(trades.map(t => t.fingerprint));
+                let addedCount = 0;
+
+                rawRows.forEach(row => {
+                    // پشتیبانی از نام ستون‌های شیت Journal: Date, Symbol, Status, ExitPrice, ProfitUSD, Lots, Risk
+                    const dateVal = row.Date || row.date || row.Time || new Date().toLocaleString();
+                    const symbolVal = String(row.Symbol || row.symbol || 'UNKNOWN').trim().toUpperCase();
+                    const pnlVal = parseFloat(row.ProfitUSD ?? row.Profit ?? row.pnl ?? 0);
+                    const lotsVal = parseFloat(row.Lots ?? row.Volume ?? row.lots ?? 0.01);
+                    const riskVal = parseFloat(row.Risk ?? row.risk ?? 1.0);
+                    const ticketVal = row.Ticket || row.Deal || row.Order || '';
+                    const statusRaw = String(row.Status || row.Type || '').toLowerCase();
+
+                    if (isNaN(pnlVal) || symbolVal === 'UNKNOWN' || symbolVal === '') return;
+
+                    const fp = createTradeFingerprint(dateVal, symbolVal, pnlVal, lotsVal, ticketVal);
+                    if (existingFingerprints.has(fp)) return; // جلوگیری از تکرار
+
+                    existingFingerprints.add(fp);
+
+                    // تشخیص جهت معامله در صورت وجود در Status
+                    let direction = 'Buy';
+                    if (statusRaw.includes('sell') || statusRaw.includes('short')) direction = 'Sell';
+
+                    const outcome = pnlVal > 0 ? 'Win' : pnlVal < 0 ? 'Loss' : 'Break-Even';
+
+                    trades.unshift({
+                        id: 'mt5-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                        fingerprint: fp,
+                        source: 'MT5 Sheet',
+                        pendingPsychology: true,
+                        date: String(dateVal),
+                        symbol: symbolVal,
+                        timeframe: 'M15',
+                        direction: direction,
+                        lots: lotsVal,
+                        risk: isNaN(riskVal) ? 1.0 : riskVal,
+                        setup: row.Setup || 'دریافت خودکار از MT5',
+                        outcome: outcome,
+                        pnl: pnlVal,
+                        emotion: 'نیاز به تکمیل',
+                        mindsetScore: 60,
+                        rules: { sl: true, ema: false, risk: true, confirm: false },
+                        notes: row.ExitPrice ? `قیمت خروج: ${row.ExitPrice} | وضعیت: ${row.Status || '-'}` : 'وارد شده از گوگل شیت متاتریدر ۵'
+                    });
+                    addedCount++;
+                });
+
+                const nowStr = new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, nowStr);
+                document.getElementById('last-sync-time').textContent = `آخرین همگام‌سازی: ${nowStr}`;
+
+                if (addedCount > 0) {
+                    saveTradesToStorage();
+                    updateDashboardStats();
+                    renderTrades();
+                    renderChart();
+                    showToast(`${addedCount} معامله جدید از MT5 دریافت شد! وضعیت روانی آن‌ها را تکمیل کنید.`, 'success');
+                } else if (!isSilent) {
+                    showToast('همگام‌سازی انجام شد؛ معامله جدیدی وجود نداشت.', 'success');
+                }
+            } catch (err) {
+                if (!isSilent) {
+                    showToast('خطا در دریافت اطلاعات از گوگل شیت. لینک Web App و دسترسی Anyone را بررسی کنید.', 'error');
+                }
+            } finally {
+                if (hIcon) hIcon.classList.remove('animate-spin-fast');
+                if (pIcon) pIcon.classList.remove('animate-spin-fast');
+            }
+        }
+
+        // ایمپورت فایل گزارش متاتریدر ۵ (HTML یا CSV)
+        function handleMT5FileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                const isHtml = file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm') || content.includes('<table');
+                let parsedTrades = [];
+
+                if (isHtml) {
+                    parsedTrades = parseMT5HtmlReport(content);
+                } else {
+                    parsedTrades = parseMT5CsvReport(content);
+                }
+
+                if (parsedTrades.length === 0) {
+                    showToast('معامله بسته‌شده‌ای در فایل یافت نشد. مطمئن شوید فایل ReportHistory متاتریدر ۵ را انتخاب کرده‌اید.', 'warning');
+                    event.target.value = '';
+                    return;
+                }
+
+                const existingFingerprints = new Set(trades.map(t => t.fingerprint));
+                let addedCount = 0;
+
+                parsedTrades.forEach(pt => {
+                    const fp = createTradeFingerprint(pt.date, pt.symbol, pt.pnl, pt.lots, pt.ticket);
+                    if (existingFingerprints.has(fp)) return;
+                    existingFingerprints.add(fp);
+
+                    trades.unshift({
+                        id: 'file-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                        fingerprint: fp,
+                        source: 'MT5 Report',
+                        pendingPsychology: true,
+                        date: pt.date,
+                        symbol: pt.symbol,
+                        timeframe: 'M15',
+                        direction: pt.direction,
+                        lots: pt.lots,
+                        risk: 1.0,
+                        setup: 'گزارش MT5',
+                        outcome: pt.pnl > 0 ? 'Win' : pt.pnl < 0 ? 'Loss' : 'Break-Even',
+                        pnl: pt.pnl,
+                        emotion: 'نیاز به تکمیل',
+                        mindsetScore: 60,
+                        rules: { sl: true, ema: false, risk: true, confirm: false },
+                        notes: 'استخراج شده از فایل تاریخچه متاتریدر ۵'
+                    });
+                    addedCount++;
+                });
+
+                if (addedCount > 0) {
+                    saveTradesToStorage();
+                    updateDashboardStats();
+                    renderTrades();
+                    renderChart();
+                    showToast(`${addedCount} معامله جدید از فایل گزارش MT5 وارد شد!`, 'success');
+                    switchTab('history');
+                } else {
+                    showToast('تمام معاملات این فایل قبلاً در ژورنال ثبت شده بودند.', 'warning');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // پارس هوشمند جدول Deals / Positions در گزارش HTML متاتریدر ۵
+        function parseMT5HtmlReport(htmlText) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlText, 'text/html');
+            const rows = Array.from(doc.querySelectorAll('tr'));
+            const extracted = [];
+
+            rows.forEach(tr => {
+                const cells = Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim());
+                if (cells.length < 8) return;
+
+                // الگوی ردیف‌های Deals/Positions در MT5 معمولاً دارای تاریخ YYYY.MM.DD HH:MM:SS هستند
+                const dateCell = cells.find(c => /^\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}/.test(c));
+                if (!dateCell) return;
+
+                // بررسی وجود جهت Buy یا Sell و خروج (out) یا سود عددی غیرصفر
+                const rowTextLower = cells.join(' ').toLowerCase();
+                if (!rowTextLower.includes('buy') && !rowTextLower.includes('sell')) return;
+                if (rowTextLower.includes('balance') || rowTextLower.includes('credit')) return;
+
+                // اگر جدول Deals باشد، معاملات بسته شده معمولاً ستون Direction = out دارند
+                const hasDirectionCol = cells.some(c => c.toLowerCase() === 'in' || c.toLowerCase() === 'out');
+                if (hasDirectionCol && !cells.some(c => c.toLowerCase() === 'out')) return;
+
+                const direction = rowTextLower.includes('sell') ? 'Sell' : 'Buy';
+
+                // یافتن نماد (معمولاً رشته‌ای شامل حروف بزرگ مثل XAUUSD یا EURUSD)
+                const symbolCell = cells.find(c => /^[A-Z0-9._-]{5,12}$/.test(c) && !/^\d+$/.test(c)) || 'XAUUSD';
+
+                // استخراج اعداد انتهایی ردیف (آخرین عدد معمولاً Profit است)
+                const numericCells = cells
+                    .map(c => c.replace(/\s+/g, '').replace(',', '.'))
+                    .filter(c => /^-?\d+(\.\d+)?$/.test(c))
+                    .map(Number);
+
+                if (numericCells.length >= 3) {
+                    const pnl = numericCells[numericCells.length - 1];
+                    // پیدا کردن حجم (معمولاً عددی بین 0.01 تا 100)
+                    const lots = numericCells.find(n => n > 0 && n <= 100 && n !== Math.abs(pnl)) || 0.01;
+                    const ticket = cells[1] && /^\d+$/.test(cells[1]) ? cells[1] : '';
+
+                    if (pnl !== 0) {
+                        extracted.push({
+                            date: dateCell,
+                            symbol: symbolCell,
+                            direction,
+                            lots,
+                            pnl,
+                            ticket
+                        });
+                    }
+                }
+            });
+
+            return extracted;
+        }
+
+        // پارس فایل CSV متاتریدر ۵ یا گوگل شیت
+        function parseMT5CsvReport(csvText) {
+            const lines = csvText.split(/\r?\n/).filter(l => l.trim() !== '');
+            if (lines.length < 2) return [];
+
+            const delimiter = lines[0].includes(';') ? ';' : ',';
+            const headers = lines[0].split(delimiter).map(h => h.replace(/"/g, '').trim().toLowerCase());
+            const extracted = [];
+
+            const idxDate = headers.findIndex(h => h.includes('date') || h.includes('time') || h.includes('تاریخ'));
+            const idxSym = headers.findIndex(h => h.includes('symbol') || h.includes('نماد'));
+            const idxPnl = headers.findIndex(h => h.includes('profit') || h.includes('pnl') || h.includes('سود'));
+            const idxLots = headers.findIndex(h => h.includes('lot') || h.includes('vol') || h.includes('حجم'));
+            const idxType = headers.findIndex(h => h.includes('type') || h.includes('status') || h.includes('جهت'));
+
+            for (let i = 1; i < lines.length; i++) {
+                const cols = lines[i].split(delimiter).map(c => c.replace(/"/g, '').trim());
+                if (cols.length < 3) continue;
+
+                const pnl = parseFloat((cols[idxPnl >= 0 ? idxPnl : cols.length - 1] || '0').replace(/\s/g, ''));
+                const symbol = (cols[idxSym >= 0 ? idxSym : 1] || 'XAUUSD').toUpperCase();
+                const date = cols[idxDate >= 0 ? idxDate : 0] || new Date().toLocaleDateString();
+                const lots = parseFloat(cols[idxLots >= 0 ? idxLots : 2] || '0.01') || 0.01;
+                const typeStr = (cols[idxType] || '').toLowerCase();
+                const direction = typeStr.includes('sell') ? 'Sell' : 'Buy';
+
+                if (!isNaN(pnl) && pnl !== 0 && symbol) {
+                    extracted.push({ date, symbol, direction, lots, pnl, ticket: '' });
+                }
+            }
+            return extracted;
+        }
+
+        // ==================== ۴. ویرایش و تکمیل روانشناسی معاملات ====================
+        function updatePendingBadges() {
+            const pendingCount = trades.filter(t => t.pendingPsychology).length;
+
+            const navBadge = document.getElementById('nav-pending-badge');
+            const mobileDot = document.getElementById('mobile-pending-dot');
+            const filterCount = document.getElementById('filter-pending-count');
+            const banner = document.getElementById('pending-psych-banner');
+            const bannerText = document.getElementById('pending-banner-text');
+
+            if (filterCount) filterCount.textContent = pendingCount;
+
+            if (pendingCount > 0) {
+                if (navBadge) {
+                    navBadge.textContent = pendingCount;
+                    navBadge.classList.remove('hidden');
+                }
+                if (mobileDot) mobileDot.classList.remove('hidden');
+                if (banner) {
+                    banner.classList.remove('hidden');
+                    bannerText.textContent = `شما ${pendingCount} معامله دریافت‌شده از MT5 دارید که وضعیت روانشناسی آن‌ها هنوز تکمیل نشده است.`;
+                }
+            } else {
+                if (navBadge) navBadge.classList.add('hidden');
+                if (mobileDot) mobileDot.classList.add('hidden');
+                if (banner) banner.classList.add('hidden');
+            }
+        }
+
+        function filterPendingTrades() {
+            switchTab('history');
+            setQuickFilter('PENDING');
+        }
+
+        function openEditPsychologyModal(id) {
+            const t = trades.find(item => item.id === id);
+            if (!t) return;
+
+            document.getElementById('edit-trade-id').value = t.id;
+            document.getElementById('edit-setup').value = t.setup === 'دریافت خودکار از MT5' ? 'اسپایک پرایس اکشن + EMA 60' : t.setup;
+            document.getElementById('edit-timeframe').value = t.timeframe || 'M15';
+            document.getElementById('edit-notes').value = t.pendingPsychology ? '' : t.notes;
+
+            const pnlColor = t.pnl >= 0 ? 'text-emerald-500' : 'text-rose-500';
+            const pnlText = (t.pnl >= 0 ? '+$' : '-$') + Math.abs(t.pnl).toFixed(2);
+
+            document.getElementById('edit-trade-summary').innerHTML = `
+                <div>
+                    <div class="font-black text-sm">${t.symbol} <span class="text-xs font-normal text-slate-400">(${t.lots || 0.01} Lots)</span></div>
+                    <div class="text-[11px] text-slate-500">${t.date}</div>
+                </div>
+                <div class="font-black text-base dir-ltr ${pnlColor}">${pnlText}</div>
+            `;
+
+            // انتخاب احساس فعلی یا پیش‌فرض
+            const targetEmotion = t.pendingPsychology ? 'آرام و منطقی' : t.emotion;
+            const radio = document.querySelector(`input[name="edit-emotion"][value="${targetEmotion}"]`) || document.querySelector('input[name="edit-emotion"]');
+            if (radio) radio.checked = true;
+
+            document.getElementById('edit-rule-sl').checked = !!(t.rules && t.rules.sl);
+            document.getElementById('edit-rule-ema').checked = !!(t.rules && t.rules.ema);
+            document.getElementById('edit-rule-risk').checked = !!(t.rules && t.rules.risk);
+            document.getElementById('edit-rule-confirm').checked = !!(t.rules && t.rules.confirm);
+
+            openModal('edit-psych-modal');
+        }
+
+        function saveEditedPsychology(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-trade-id').value;
+            const idx = trades.findIndex(t => t.id === id);
+            if (idx === -1) return;
+
+            const setup = document.getElementById('edit-setup').value.trim();
+            const timeframe = document.getElementById('edit-timeframe').value;
+            const emotionEl = document.querySelector('input[name="edit-emotion"]:checked');
+            const emotion = emotionEl ? emotionEl.value : 'آرام و منطقی';
+            const baseScore = emotionEl ? parseInt(emotionEl.dataset.score) : 80;
+
+            const sl = document.getElementById('edit-rule-sl').checked;
+            const ema = document.getElementById('edit-rule-ema').checked;
+            const risk = document.getElementById('edit-rule-risk').checked;
+            const confirm = document.getElementById('edit-rule-confirm').checked;
+
+            const rulesCount = (sl ? 1 : 0) + (ema ? 1 : 0) + (risk ? 1 : 0) + (confirm ? 1 : 0);
+            const finalScore = Math.min(100, Math.max(15, baseScore - (4 - rulesCount) * 4));
+
+            const notes = document.getElementById('edit-notes').value.trim();
+
+            trades[idx] = {
+                ...trades[idx],
+                setup,
+                timeframe,
+                emotion,
+                mindsetScore: finalScore,
+                pendingPsychology: false,
+                rules: { sl, ema, risk, confirm },
+                notes: notes || 'تکمیل شده در ژورنال روانشناسی'
+            };
+
+            saveTradesToStorage();
+            updateDashboardStats();
+            renderTrades();
+            renderChart();
+            closeModal('edit-psych-modal');
+            showToast('وضعیت روانشناسی معامله با موفقیت ثبت شد!', 'success');
+        }
+
+        // ==================== ۵. ثبت دستی، نمایش لیست و فیلترها ====================
+        function autoSignPnl() {
+            const outcome = document.getElementById('trade-outcome').value;
+            const pnlInput = document.getElementById('trade-pnl');
+            let val = parseFloat(pnlInput.value);
+            if (isNaN(val)) return;
+
+            if (outcome === 'Loss' && val > 0) pnlInput.value = -Math.abs(val);
+            else if (outcome === 'Win' && val < 0) pnlInput.value = Math.abs(val);
+            else if (outcome === 'Break-Even') pnlInput.value = 0;
+        }
+
+        function saveManualTrade(e) {
+            e.preventDefault();
+
+            const symbol = document.getElementById('trade-symbol').value.trim().toUpperCase();
+            const timeframe = document.getElementById('trade-timeframe').value;
+            const direction = document.querySelector('input[name="trade-direction"]:checked').value;
+            const lots = parseFloat(document.getElementById('trade-lots').value) || 0.01;
+            const risk = parseFloat(document.getElementById('trade-risk').value) || 1.0;
+            const setup = document.getElementById('trade-setup').value.trim();
+            const outcome = document.getElementById('trade-outcome').value;
+            let pnl = parseFloat(document.getElementById('trade-pnl').value);
+
+            if (outcome === 'Loss' && pnl > 0) pnl = -pnl;
+            if (outcome === 'Win' && pnl < 0) pnl = Math.abs(pnl);
+
+            const emotionEl = document.querySelector('input[name="trade-emotion"]:checked');
+            const emotion = emotionEl.value;
+            const baseScore = parseInt(emotionEl.dataset.score);
+
+            const sl = document.getElementById('rule-sl').checked;
+            const ema = document.getElementById('rule-ema').checked;
+            const riskOk = document.getElementById('rule-risk').checked;
+            const confirm = document.getElementById('rule-confirm').checked;
+
+            const rulesCount = (sl ? 1 : 0) + (ema ? 1 : 0) + (riskOk ? 1 : 0) + (confirm ? 1 : 0);
+            const finalScore = Math.min(100, Math.max(15, baseScore - (4 - rulesCount) * 4));
+            const notes = document.getElementById('trade-notes').value.trim();
+
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            trades.unshift({
+                id: 'man-' + Date.now(),
+                fingerprint: createTradeFingerprint(dateStr, symbol, pnl, lots),
+                source: 'Manual',
+                pendingPsychology: false,
+                date: dateStr,
+                symbol,
+                timeframe,
+                direction,
+                lots,
+                risk,
+                setup,
+                outcome,
+                pnl,
+                emotion,
+                mindsetScore: finalScore,
+                rules: { sl, ema, risk: riskOk, confirm },
+                notes: notes || 'بدون یادداشت اضافی'
+            });
+
+            saveTradesToStorage();
+            document.getElementById('trade-pnl').value = '';
+            document.getElementById('trade-notes').value = '';
+
+            showToast('معامله جدید در ژورنال ثبت شد!', 'success');
+            updateDashboardStats();
+            renderTrades();
+            renderChart();
+            switchTab('dashboard');
+        }
+
+        function deleteTrade(id) {
+            trades = trades.filter(t => t.id !== id);
+            saveTradesToStorage();
+            updateDashboardStats();
+            renderTrades();
+            renderChart();
+            showToast('معامله حذف شد.', 'warning');
+        }
+
+        function setQuickFilter(filterType) {
+            currentQuickFilter = filterType;
+            document.querySelectorAll('.qfilter-btn').forEach(btn => {
+                if (btn.dataset.qfilter === filterType) {
+                    btn.classList.add('bg-emerald-500', 'text-white');
+                    btn.classList.remove('bg-slate-100', 'dark:bg-slate-850', 'text-slate-600', 'dark:text-slate-300');
+                } else {
+                    btn.classList.remove('bg-emerald-500', 'text-white');
+                    btn.classList.add('bg-slate-100', 'dark:bg-slate-850');
+                }
+            });
+            renderTrades();
+        }
+
+        function renderTrades() {
+            const container = document.getElementById('trades-list');
+            const symbolSearch = document.getElementById('filter-symbol').value.trim().toUpperCase();
+
+            const filtered = trades.filter(t => {
+                const matchSym = !symbolSearch || t.symbol.includes(symbolSearch);
+                if (!matchSym) return false;
+
+                if (currentQuickFilter === 'PENDING') return !!t.pendingPsychology;
+                if (currentQuickFilter === 'WIN') return t.pnl > 0;
+                if (currentQuickFilter === 'LOSS') return t.pnl < 0;
+                if (currentQuickFilter === 'ERROR') {
+                    return ['ترس از جاماندن (FOMO)', 'معامله انتقامی (Revenge)', 'طمع و جابجایی هدف', 'خستگی و عجله'].includes(t.emotion);
+                }
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-10 text-center">
+                        <h3 class="font-bold text-base mb-1">معامله‌ای در این فیلتر وجود ندارد</h3>
+                        <p class="text-xs text-slate-500 mb-4">فیلتر دیگری را انتخاب کنید یا معاملات جدید خود را از متاتریدر همگام‌سازی کنید.</p>
+                        <button onclick="setQuickFilter('ALL')" class="px-5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold">نمایش همه معاملات</button>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(t => {
+                const isWin = t.pnl > 0;
+                const isLoss = t.pnl < 0;
+                const pnlBadge = isWin
+                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                    : isLoss
+                    ? 'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                    : 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+
+                const pnlText = (t.pnl >= 0 ? '+$' : '-$') + Math.abs(t.pnl).toFixed(2);
+                const isPending = !!t.pendingPsychology;
+
+                return `
+                    <div class="bg-white dark:bg-slate-900 border ${isPending ? 'border-amber-500/50' : 'border-slate-200 dark:border-slate-800'} rounded-3xl p-5 shadow-sm flex flex-col justify-between transition">
+                        <div>
+                            <div class="flex items-start justify-between gap-2 mb-3">
+                                <div>
+                                    <div class="flex flex-wrap items-center gap-1.5">
+                                        <span class="font-black text-base">${t.symbol}</span>
+                                        <span class="text-[11px] font-bold px-2 py-0.5 rounded-lg ${t.direction === 'Buy' ? 'bg-emerald-500/15 text-emerald-500' : 'bg-rose-500/15 text-rose-500'}">
+                                            ${t.direction}
+                                        </span>
+                                        <span class="text-[11px] font-mono bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg text-slate-500">${t.lots || 0.01} Lots</span>
+                                        ${t.source !== 'Manual' ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/15 text-blue-400">${t.source}</span>` : ''}
+                                    </div>
+                                    <div class="text-[11px] text-slate-400 mt-1 dir-ltr text-right">${t.date}</div>
+                                </div>
+                                <div class="px-3 py-1.5 rounded-2xl border font-black text-sm dir-ltr ${pnlBadge}">
+                                    ${pnlText}
+                                </div>
+                            </div>
+
+                            <div class="flex flex-wrap gap-1.5 my-3">
+                                ${isPending ? `
+                                    <span class="text-[11px] px-2.5 py-1 rounded-xl bg-amber-500/15 text-amber-500 font-bold border border-amber-500/30">
+                                        ⏳ نیاز به تکمیل روانشناسی
+                                    </span>
+                                ` : `
+                                    <span class="text-[11px] px-2.5 py-1 rounded-xl bg-purple-500/10 text-purple-500 font-bold">
+                                        🧠 ${t.emotion} (${t.mindsetScore}/100)
+                                    </span>
+                                `}
+                                <span class="text-[11px] px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-850 text-slate-600 dark:text-slate-300 font-medium">
+                                    📊 ${t.setup}
+                                </span>
+                            </div>
+
+                            <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-4">
+                                ${t.notes}
+                            </p>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <button onclick="openEditPsychologyModal('${t.id}')" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${isPending ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-500'}">
+                                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                                <span>${isPending ? 'تکمیل وضعیت روانشناسی' : 'ویرایش ژورنال و روان'}</span>
+                            </button>
+
+                            <button onclick="deleteTrade('${t.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition" title="حذف معامله">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        // ==================== ۶. آمار داشبورد و نمودارهای Chart.js ====================
+        function updateDashboardStats() {
+            const total = trades.length;
+            const netPnl = trades.reduce((sum, t) => sum + t.pnl, 0);
+            const wins = trades.filter(t => t.pnl > 0);
+            const losses = trades.filter(t => t.pnl < 0);
+
+            const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
+            const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+            const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss).toFixed(2) : (grossProfit > 0 ? '∞' : '0.00');
+
+            const winRate = total > 0 ? Math.round((wins.length / total) * 100) : 0;
+
+            const calmTrades = trades.filter(t => ['آرام و منطقی', 'پایبند به پلن'].includes(t.emotion)).length;
+            const calmRatio = total > 0 ? Math.round((calmTrades / total) * 100) : 0;
+            const avgMindset = total > 0 ? Math.round(trades.reduce((s, t) => s + (t.mindsetScore || 60), 0) / total) : 0;
+
+            const pnlEl = document.getElementById('stat-net-pnl');
+            pnlEl.textContent = (netPnl >= 0 ? '+$' : '-$') + Math.abs(netPnl).toFixed(2);
+            pnlEl.className = `text-xl sm:text-2xl font-black tracking-tight dir-ltr text-right ${netPnl >= 0 ? 'text-emerald-500' : 'text-rose-500'}`;
+
+            document.getElementById('stat-trade-count').textContent = `بر اساس ${total} معامله ثبت شده`;
+            document.getElementById('stat-win-rate').textContent = `${winRate}%`;
+            document.getElementById('stat-wl-ratio').textContent = `${wins.length} برد / ${losses.length} باخت`;
+            document.getElementById('stat-profit-factor').textContent = profitFactor;
+            document.getElementById('stat-calm-ratio').textContent = `${calmRatio}%`;
+            document.getElementById('stat-avg-mindset').textContent = `میانگین امتیاز روان: ${avgMindset}/100`;
+        }
+
+        function setChartMode(mode) {
+            currentChartMode = mode;
+            const btnEq = document.getElementById('btn-chart-equity');
+            const btnEm = document.getElementById('btn-chart-emotion');
+
+            if (mode === 'equity') {
+                btnEq.className = 'px-2.5 py-1 rounded-lg font-bold bg-white dark:bg-slate-800 text-emerald-500 shadow-sm transition';
+                btnEm.className = 'px-2.5 py-1 rounded-lg font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition';
+                document.getElementById('chart-subtitle').textContent = 'روند رشد سرمایه تجمعی (Equity Curve) و امتیاز آرامش ذهن در هر معامله';
+            } else {
+                btnEm.className = 'px-2.5 py-1 rounded-lg font-bold bg-white dark:bg-slate-800 text-emerald-500 shadow-sm transition';
+                btnEq.className = 'px-2.5 py-1 rounded-lg font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition';
+                document.getElementById('chart-subtitle').textContent = 'مجموع سود و زیان دلاری ($) به تفکیک وضعیت روانی حین معامله';
+            }
+            renderChart();
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('mainChart');
+            if (!ctx) return;
+            if (mainChart) mainChart.destroy();
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const gridColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.2)';
+            const textColor = isDark ? '#94a3b8' : '#475569';
+
+            if (currentChartMode === 'equity') {
+                const chronological = [...trades].reverse();
+                let runningEquity = 0;
+                const equityData = chronological.map(t => {
+                    runningEquity += t.pnl;
+                    return Number(runningEquity.toFixed(2));
+                });
+                const mindsetData = chronological.map(t => t.mindsetScore || 60);
+                const labels = chronological.map((t, i) => `#${i + 1} ${t.symbol}`);
+
+                mainChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels.length ? labels : ['بدون داده'],
+                        datasets: [
+                            {
+                                label: 'رشد سرمایه تجمعی ($)',
+                                data: equityData.length ? equityData : [0],
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.35,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'امتیاز تعادل روانی (۰ تا ۱۰۰)',
+                                data: mindsetData.length ? mindsetData : [0],
+                                borderColor: '#a855f7',
+                                borderDash: [5, 5],
+                                borderWidth: 2,
+                                tension: 0.35,
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { labels: { color: textColor, font: { family: 'Vazirmatn', size: 11 } } },
+                            tooltip: { titleFont: { family: 'Vazirmatn' }, bodyFont: { family: 'Vazirmatn' }, rtl: true }
+                        },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: textColor, font: { family: 'Vazirmatn', size: 10 } } },
+                            y: {
+                                position: 'right',
+                                grid: { color: gridColor },
+                                ticks: { color: textColor, font: { family: 'Vazirmatn', size: 11 }, callback: v => '$' + v }
+                            },
+                            y1: {
+                                position: 'left',
+                                min: 0,
+                                max: 100,
+                                grid: { drawOnChartArea: false },
+                                ticks: { color: '#a855f7', font: { family: 'Vazirmatn', size: 10 } }
+                            }
+                        }
+                    }
+                });
+            } else {
+                // گروه‌بندی سود/زیان بر اساس احساسات
+                const emotionMap = {};
+                trades.forEach(t => {
+                    const em = t.emotion || 'سایر';
+                    emotionMap[em] = (emotionMap[em] || 0) + t.pnl;
+                });
+
+                const labels = Object.keys(emotionMap);
+                const values = Object.values(emotionMap).map(v => Number(v.toFixed(2)));
+                const bgColors = values.map(v => v >= 0 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(244, 63, 94, 0.8)');
+
+                mainChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels.length ? labels : ['بدون داده'],
+                        datasets: [{
+                            label: 'برآیند مالی بر اساس حالت روانی ($)',
+                            data: values.length ? values : [0],
+                            backgroundColor: bgColors.length ? bgColors : ['rgba(16, 185, 129, 0.5)'],
+                            borderRadius: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { titleFont: { family: 'Vazirmatn' }, bodyFont: { family: 'Vazirmatn' }, rtl: true }
+                        },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: textColor, font: { family: 'Vazirmatn', size: 11 } } },
+                            y: { grid: { color: gridColor }, ticks: { color: textColor, font: { family: 'Vazirmatn', size: 11 }, callback: v => '$' + v } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // ==================== ۷. سنجش آمادگی، ابزارهای کنترل بحران و ناوبری ====================
+        function updateMindsetScore() {
+            const sleep = parseInt(document.getElementById('slider-sleep').value);
+            const focus = parseInt(document.getElementById('slider-focus').value);
+            const plan = parseInt(document.getElementById('slider-plan').value);
+            const stress = parseInt(document.getElementById('slider-stress').value);
+            const fomo = parseInt(document.getElementById('slider-fomo').value);
+
+            document.getElementById('val-sleep').textContent = `${sleep} / 5`;
+            document.getElementById('val-focus').textContent = `${focus} / 5`;
+            document.getElementById('val-plan').textContent = `${plan} / 5`;
+            document.getElementById('val-stress').textContent = `${stress} / 5`;
+            document.getElementById('val-fomo').textContent = `${fomo} / 5`;
+
+            // مجموع ۵ معیار (هر معیار حداکثر ۲۰ امتیاز = ۱۰۰)
+            const totalPoints = sleep + focus + plan + (6 - stress) + (6 - fomo); // بین 5 تا 25
+            const score = Math.round(((totalPoints - 5) / 20) * 100);
+
+            const scoreEl = document.getElementById('readiness-score');
+            const alertBox = document.getElementById('readiness-alert');
+            const msgEl = document.getElementById('readiness-message');
+
+            scoreEl.textContent = score;
+
+            if (score >= 75) {
+                scoreEl.className = 'text-3xl font-black text-emerald-500';
+                alertBox.className = 'p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs leading-relaxed flex items-start gap-2';
+                msgEl.textContent = 'آمادگی ذهنی ایده‌آل است. با ریسک استاندارد و رعایت کامل قوانین استراتژی وارد شوید.';
+            } else if (score >= 50) {
+                scoreEl.className = 'text-3xl font-black text-amber-500';
+                alertBox.className = 'p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 text-xs leading-relaxed flex items-start gap-2';
+                msgEl.textContent = 'هشدار احتیاط: تمرکز کامل نیست یا استرس دارید. حجم معاملات امروز را نصف کنید و فقط ستاپ‌های قطعی را بگیرید.';
+            } else {
+                scoreEl.className = 'text-3xl font-black text-rose-500';
+                alertBox.className = 'p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs leading-relaxed flex items-start gap-2';
+                msgEl.textContent = 'ممنوعیت ترید! سطح استرس یا وسوسه FOMO بالاست. امروز پلتفرم را ببندید یا تمرین تنفس جعبه‌ای انجام دهید.';
+            }
+        }
+
+        // تنفس جعبه‌ای 4-4-4-4
+        let breathInterval = null;
+        let isBreathing = false;
+
+        function toggleBreathing() {
+            const btn = document.getElementById('breath-toggle-btn');
+            const circle = document.getElementById('breath-circle');
+            const phaseEl = document.getElementById('breath-phase');
+            const timerEl = document.getElementById('breath-timer');
+            const instrEl = document.getElementById('breath-instruction');
+
+            if (isBreathing) {
+                clearInterval(breathInterval);
+                isBreathing = false;
+                circle.className = 'breath-circle w-32 h-32 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex flex-col items-center justify-center text-white shadow-xl';
+                phaseEl.textContent = 'آماده؟';
+                timerEl.textContent = '4';
+                instrEl.textContent = 'تمرین متوقف شد. هر زمان احساس استرس داشتید دوباره شروع کنید.';
+                btn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i><span>شروع تمرین آرام‌سازی</span>`;
+                lucide.createIcons();
+                return;
+            }
+
+            isBreathing = true;
+            btn.innerHTML = `<i data-lucide="square" class="w-4 h-4"></i><span>توقف تمرین</span>`;
+            lucide.createIcons();
+
+            const phases = [
+                { name: 'دم (نفس عمیق)', cls: 'breath-inhale', desc: 'به آرامی از راه بینی نفس بکشید...' },
+                { name: 'حبس نفس', cls: 'breath-hold-in', desc: 'نفس خود را آرام در سینه نگه دارید...' },
+                { name: 'بازدم (تخلیه)', cls: 'breath-exhale', desc: 'به آرامی تمام تنش و استرس را بیرون بدهید...' },
+                { name: 'مکث و آرامش', cls: 'breath-hold-out', desc: 'چند ثانیه بدون نفس بمانید و ذهن را رها کنید...' }
+            ];
+
+            let phaseIdx = 0;
+            let count = 4;
+
+            function applyPhase() {
+                const p = phases[phaseIdx];
+                circle.className = `breath-circle ${p.cls} w-32 h-32 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex flex-col items-center justify-center text-white shadow-xl`;
+                phaseEl.textContent = p.name;
+                timerEl.textContent = count;
+                instrEl.textContent = p.desc;
+            }
+
+            applyPhase();
+            breathInterval = setInterval(() => {
+                count--;
+                if (count < 1) {
+                    phaseIdx = (phaseIdx + 1) % 4;
+                    count = 4;
+                    applyPhase();
+                } else {
+                    timerEl.textContent = count;
+                }
+            }, 1000);
+        }
+
+        // تایمر قفل ضد معامله انتقامی
+        let cooldownInterval = null;
+        let cooldownSeconds = 0;
+
+        function startCooldown(minutes) {
+            clearInterval(cooldownInterval);
+            cooldownSeconds = minutes * 60;
+            updateCooldownUI();
+            document.getElementById('cooldown-status').textContent = '🔒 چارت را ببندید! تا پایان تایمر هیچ معامله‌ای باز نکنید.';
+            document.getElementById('cooldown-status').className = 'mt-3 text-xs font-bold text-rose-500';
+            showToast(`قفل استراحت ${minutes} دقیقه‌ای فعال شد.`, 'warning');
+
+            cooldownInterval = setInterval(() => {
+                cooldownSeconds--;
+                updateCooldownUI();
+                if (cooldownSeconds <= 0) {
+                    clearInterval(cooldownInterval);
+                    document.getElementById('cooldown-status').textContent = '✅ زمان استراحت تمام شد. قوانین طلایی را مرور کنید.';
+                    document.getElementById('cooldown-status').className = 'mt-3 text-xs font-bold text-emerald-500';
+                    showToast('زمان قفل استراحت به پایان رسید!', 'success');
+                }
+            }, 1000);
+        }
+
+        function stopCooldown() {
+            clearInterval(cooldownInterval);
+            cooldownSeconds = 0;
+            document.getElementById('cooldown-display').textContent = '15:00';
+            document.getElementById('cooldown-status').textContent = 'قفل غیرفعال است. در صورت احساس خشم یا عجله، تایمر را فعال کنید.';
+            document.getElementById('cooldown-status').className = 'mt-3 text-xs font-medium text-emerald-500';
+        }
+
+        function updateCooldownUI() {
+            const mins = Math.floor(cooldownSeconds / 60);
+            const secs = cooldownSeconds % 60;
+            document.getElementById('cooldown-display').textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        // چک‌لیست قوانین شخصی
+        function renderPersonalRules() {
+            const list = document.getElementById('personal-rules-list');
+            list.innerHTML = personalRules.map(rule => `
+                <div class="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800">
+                    <label class="flex items-center gap-3 cursor-pointer flex-1">
+                        <input type="checkbox" ${rule.checked ? 'checked' : ''} onchange="togglePersonalRule('${rule.id}')" class="w-4 h-4 accent-blue-500 rounded shrink-0">
+                        <span class="text-xs font-medium leading-relaxed ${rule.checked ? 'line-through text-slate-400' : ''}">${rule.text}</span>
+                    </label>
+                    <button onclick="deletePersonalRule('${rule.id}')" class="text-slate-400 hover:text-rose-500 p-1">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function addPersonalRule(e) {
+            e.preventDefault();
+            const input = document.getElementById('new-rule-input');
+            const text = input.value.trim();
+            if (!text) return;
+            personalRules.push({ id: 'rule-' + Date.now(), text, checked: false });
+            saveRulesToStorage();
+            input.value = '';
+            renderPersonalRules();
+            showToast('قانون جدید اضافه شد.', 'success');
+        }
+
+        function togglePersonalRule(id) {
+            const rule = personalRules.find(r => r.id === id);
+            if (rule) {
+                rule.checked = !rule.checked;
+                saveRulesToStorage();
+                renderPersonalRules();
+            }
+        }
+
+        function deletePersonalRule(id) {
+            personalRules = personalRules.filter(r => r.id !== id);
+            saveRulesToStorage();
+            renderPersonalRules();
+        }
+
+        function resetPersonalChecklist() {
+            personalRules.forEach(r => r.checked = false);
+            saveRulesToStorage();
+            renderPersonalRules();
+            showToast('تیک‌های چک‌لیست بازنشانی شدند.', 'success');
+        }
+
+        // خروجی و بکاپ
+        function exportData(format) {
+            if (trades.length === 0) {
+                showToast('هیچ داده‌ای برای خروجی گرفتن وجود ندارد!', 'warning');
+                return;
+            }
+            if (format === 'json') {
+                const blob = new Blob([JSON.stringify(trades, null, 2)], { type: 'application/json' });
+                downloadFile(blob, `TraderMind_Backup_${Date.now()}.json`);
+                showToast('فایل بکاپ JSON دانلود شد.', 'success');
+            } else {
+                const headers = ['تاریخ', 'منبع', 'نماد', 'تایم‌فریم', 'جهت', 'حجم(Lots)', 'ریسک(%)', 'ستاپ', 'سود/زیان($)', 'احساس', 'امتیاز روان', 'یادداشت'];
+                const rows = trades.map(t => [
+                    `"${t.date}"`, t.source || 'Manual', t.symbol, t.timeframe, t.direction, t.lots || 0.01, t.risk,
+                    `"${t.setup}"`, t.pnl, `"${t.emotion}"`, t.mindsetScore, `"${(t.notes || '').replace(/"/g, '""')}"`
+                ]);
+                const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                downloadFile(blob, `TraderMind_Journal_${Date.now()}.csv`);
+                showToast('فایل اکسل (CSV فارسی) دانلود شد.', 'success');
+            }
+        }
+
+        function downloadFile(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importJsonBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        trades = imported;
+                        saveTradesToStorage();
+                        updateDashboardStats();
+                        renderTrades();
+                        renderChart();
+                        showToast(`${imported.length} معامله بازیابی شد!`, 'success');
+                    }
+                } catch (err) {
+                    showToast('فایل JSON نامعتبر است.', 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        function clearAllData() {
+            trades = [];
+            saveTradesToStorage();
+            updateDashboardStats();
+            renderTrades();
+            renderChart();
+            closeModal('confirm-reset-modal');
+            showToast('تمام معاملات پاک شدند.', 'warning');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.dataset.tab === tabId) {
+                    btn.classList.add('bg-white', 'dark:bg-slate-800', 'text-emerald-600', 'dark:text-emerald-400', 'shadow-sm');
+                    btn.classList.remove('text-slate-600', 'dark:text-slate-400');
+                } else {
+                    btn.classList.remove('bg-white', 'dark:bg-slate-800', 'text-emerald-600', 'dark:text-emerald-400', 'shadow-sm');
+                    btn.classList.add('text-slate-600', 'dark:text-slate-400');
+                }
+            });
+
+            document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                if (btn.dataset.tab === tabId) {
+                    btn.classList.add('text-emerald-500');
+                    btn.classList.remove('text-slate-500', 'dark:text-slate-400');
+                } else {
+                    btn.classList.remove('text-emerald-500');
+                    btn.classList.add('text-slate-500', 'dark:text-slate-400');
+                }
+            });
+
+            if (tabId === 'dashboard') {
+                updateDashboardStats();
+                renderChart();
+            }
+        }
+
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem(STORAGE_KEYS.THEME, isDark ? 'dark' : 'light');
+            document.getElementById('theme-icon').setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+            lucide.createIcons();
+            renderChart();
+        }
+
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = type === 'success'
+                ? 'bg-emerald-600 text-white border-emerald-400'
+                : type === 'warning'
+                ? 'bg-amber-600 text-white border-amber-400'
+                : 'bg-rose-600 text-white border-rose-400';
+
+            toast.className = `${colors} border px-4 py-3 rounded-2xl shadow-xl text-xs font-bold flex items-center justify-between gap-3 pointer-events-auto transition-all duration-300`;
+            toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()" class="opacity-80 hover:opacity-100">✕</button>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // ==================== ۸. راه‌اندازی اولیه ====================
+        window.addEventListener('DOMContentLoaded', () => {
+            loadInitialData();
+            updatePendingBadges();
+            updateMindsetScore();
+            updateDashboardStats();
+            renderTrades();
+            renderPersonalRules();
+            renderChart();
+            lucide.createIcons();
+
+            // همگام‌سازی خودکار هنگام باز شدن اپ در صورت فعال بودن گزینه
+            const isAutoSync = localStorage.getItem(STORAGE_KEYS.AUTO_SYNC) === 'true';
+            const savedUrl = localStorage.getItem(STORAGE_KEYS.GAS_URL);
+            if (isAutoSync && savedUrl) {
+                syncFromGoogleSheet(true);
+            }
+        });
+    </script>
+</body>
+</html>
